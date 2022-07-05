@@ -1,0 +1,214 @@
+﻿@using System.Diagnostics.CodeAnalysis
+@typeparam TItem
+
+<CascadingValue Value="this">
+    @if (Columns.Any())
+    {
+        <div>
+            <input type="text" value="@SearchText" @oninput="@UpdateSearch">
+        </div>
+        <table class="table table-sm table-bordered table-hover">
+            @* Generate Header *@
+            <thead>
+                <tr>
+                    @foreach (var column in Columns)
+                    {
+                        <th>
+                            <div @onclick="@(() => column.Sort())">
+                                <span>@column.Label</span>
+                                @if (column.IsSortColumn)
+                                {
+                                    @if (column.SortDirection == SortDirection.Ascending)
+                                    {
+                                        <span class="oi oi-arrow-thick-top"></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="oi oi-arrow-thick-bottom"></span>
+                                    }
+                                }
+                            </div>
+                        </th>
+                    }
+                </tr>
+            </thead>
+
+            @* Generate Body *@
+            <tbody>
+                @{
+                    var displayedItems = new List<TItem>();
+                }
+                @if (ShowPagination)
+                {
+                    int itemsOnPage = (CurrentPageIndex + 1) * ItemsPerPage > FilteredItems.Count ? FilteredItems.Count % ItemsPerPage : ItemsPerPage;
+                    displayedItems = FilteredItems.GetRange(CurrentPageIndex * ItemsPerPage, itemsOnPage);
+                }
+                else
+                {
+                    displayedItems = FilteredItems;
+                }
+                @if (displayedItems != null && displayedItems.Count != 0)
+                {
+                    @foreach (var item in displayedItems)
+                    {
+                        <tr>
+                            @foreach (var column in Columns)
+                            {
+                                if (column.ColumnTemplate != null)
+                                {
+                                    <td>@column.ColumnTemplate(item)</td>
+                                }
+                                else
+                                {
+                                    <td>@column.Field.Invoke(item)</td>                                    
+                                }
+                            }
+                        </tr>
+                    }
+                }
+            </tbody>
+
+            @* Generate Footer *@
+            <tfoot>
+                @if (ShowRowCount)
+                {
+                    <div>
+                        Items: @(displayedItems?.Count.ToString() ?? "0")
+                    </div>
+                }
+                @if (ShowPagination)
+                {
+                    <div>
+                        @{
+
+                        }
+                        @for (int page = 0; page < NumberOfPages; page++)
+                        {
+                            int localPage = page;
+                            <span style="cursor: pointer;" class="border border-dark mr-1 @(page == CurrentPageIndex ? "active" : "")" @onclick="() => NextPage(localPage)">@(page + 1)</span>
+                        }
+                    </div>
+                }
+            </tfoot>
+        </table>
+    }
+    else
+    {
+        <p>Columns not set</p>
+    }
+
+    @ChildContent
+</CascadingValue>
+
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter, AllowNull]
+    public List<TItem> Items { get; set; }
+
+    [Parameter]
+    public bool ShowRowCount { get; set; } = false;
+
+    [Parameter]
+    public bool ShowPagination { get; set; } = false;
+
+    private List<TItem> FilteredItems { get; set; } = new();
+
+    private string SearchText { get; set; } = "";
+
+    private int ItemsPerPage { get; set; } = 10;
+    private int CurrentPageIndex { get; set; } = 0;
+    private int NumberOfPages { get; set; } = 0;
+
+    public List<SimpleColumn<TItem>> Columns { get; } = new List<SimpleColumn<TItem>>();
+
+
+    protected override void OnParametersSet()
+    {
+        FilteredItems = Items;
+        NumberOfPages = (int)Math.Ceiling((decimal)FilteredItems.Count / ItemsPerPage);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+    }
+
+    private void NextPage(int page)
+    {
+        CurrentPageIndex = page;
+    }
+
+    private void UpdateSearch(ChangeEventArgs e)
+    {
+        SearchText = e?.Value?.ToString() ?? "";
+        FilterItems();
+    }
+
+    private void FilterItems()
+    {
+        CurrentPageIndex = 0;
+
+        FilteredItems = new List<TItem>();
+
+        // loop through each item
+        foreach (var item in Items)
+        {
+            // loop through columns and find matches
+            foreach (var column in Columns)
+            {
+                if (column.GlobalSearch != null)
+                {
+                    // if search matches defined delegate
+                    if (column.GlobalSearch.Invoke(item, SearchText))
+                    {
+                        FilteredItems.Add(item);
+                        break;
+                    }
+                }
+                // TODO: add a default search
+
+            }
+        }
+
+        // sort items
+        var sortColumn = Columns.Find(x => x.IsSortColumn);
+
+        if (sortColumn != null)
+        {
+            if (sortColumn.SortDirection == SortDirection.Ascending)
+                FilteredItems = FilteredItems.OrderBy(sortColumn.Field).ToList();
+            else
+                FilteredItems = FilteredItems.OrderByDescending(sortColumn.Field).ToList();
+        }
+
+        NumberOfPages = GetNumberOfPages();
+    }
+
+    private int GetNumberOfPages()
+    {
+        if (ItemsPerPage == 0)
+            return 0;
+
+        return (int)Math.Ceiling((decimal)FilteredItems.Count / ItemsPerPage);
+    }
+
+    // Adds a column and triggers a render of the table component
+    public void AddColumn(SimpleColumn<TItem> column)
+    {
+        if (!Columns.Contains(column))
+        {
+            column.Table = this;
+            Columns.Add(column);
+            StateHasChanged();
+        }
+    }
+
+    public void Update()
+    {
+        FilterItems();
+    }
+
+}

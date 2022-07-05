@@ -1,0 +1,43 @@
+﻿@page "/"
+@using BlazorServerApp.Data;
+@using SimpleTable;
+@inject ItemService _itemService;
+
+<PageTitle>Table Testing</PageTitle>
+
+<div>
+    <h3>Blazor Table Testing</h3>
+    <hr />
+</div>
+<div>
+    <div>
+        <button @onclick="GetTestItems" class="">Get Items</button>
+    </div>
+    @if (TestItems != null)
+    {
+        <SimpleTable Items="TestItems" TItem="TestItem" ShowRowCount="true" ShowPagination="true">
+            <SimpleColumn Label="ID" TItem="TestItem" Field="@(x => x.Id)">
+                <ColumnTemplate>
+                    @if (context.Id == 1)
+                    {
+                        <span>Test</span>
+                    }
+                    <a href="https://google.com">@context.Id</a>
+                </ColumnTemplate>
+            </SimpleColumn>
+                
+            <SimpleColumn Label="FirstName" TItem="TestItem" Field="@(x => x.FistName)" GlobalSearch="@((x, y) => x.FistName.Contains(y, StringComparison.InvariantCultureIgnoreCase))" />               
+            <SimpleColumn Label="LastName" TItem="TestItem" Field="@(x => x.LastName)" GlobalSearch="@((x, y) => x.LastName.Contains(y, StringComparison.InvariantCultureIgnoreCase))" />
+        </SimpleTable>
+    }
+</div>
+
+@code {
+    private List<TestItem>? TestItems;
+
+    private void GetTestItems()
+    {
+        TestItems = _itemService.GetTestItems();
+    }
+
+}

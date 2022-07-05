@@ -1,0 +1,47 @@
+﻿@typeparam TItem
+
+@code {
+    [CascadingParameter]
+    public SimpleTable<TItem> Table { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// Selects the field to display on the column, also works as a selector for sorting.
+    /// </summary>
+    [Parameter]
+    public Func<TItem, object> Field { get; set; }
+
+    [Parameter]
+    public Func<TItem, string, bool>? GlobalSearch { get; set; }
+
+    [Parameter]
+    public RenderFragment<TItem> ColumnTemplate { get; set; }
+
+    public bool IsSortColumn { get; set; } = false;
+    public SortDirection SortDirection { get; set; } = SortDirection.Descending;
+
+    protected override void OnParametersSet()
+    {
+        Table.AddColumn(this);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+    }
+
+    public void Sort()
+    {
+        if (SortDirection == SortDirection.Ascending)
+            SortDirection = SortDirection.Descending;
+        else
+            SortDirection = SortDirection.Ascending;
+
+        Table.Columns.ForEach(x => x.IsSortColumn = false);
+
+        IsSortColumn = true;
+        Table.Update();
+    }
+}
